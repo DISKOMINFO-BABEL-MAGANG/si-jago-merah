@@ -466,48 +466,61 @@ L.control.layers(
 ).addTo(map);
 
 // ===============================
-// LEGENDA HOTSPOT
+// LEGENDA PETA
 // ===============================
 
-const hotspotLegend = L.control({
+const mapLegend = L.control({
     position: 'bottomright'
 });
 
-hotspotLegend.onAdd = function () {
+mapLegend.onAdd = function () {
 
     const div = L.DomUtil.create(
         'div',
-        'hotspot-legend'
+        'map-legend'
     );
 
     div.innerHTML = `
-        <div class="hotspot-legend-title">
-            🔥 Tingkat Hotspot
+        <div class="map-legend-title">
+            Legenda Peta
         </div>
 
-        <div class="hotspot-legend-item">
-            <span class="hotspot-legend-dot hotspot-legend-low">
-                ●
-            </span>
-            Rendah
+        <div class="map-legend-section">Tingkat Hotspot</div>
+
+        <div class="map-legend-item">
+            <span class="legend-dot legend-dot-low"></span>
+            <span>Risiko rendah</span>
         </div>
 
-        <div class="hotspot-legend-item">
-            <span class="hotspot-legend-dot hotspot-legend-medium">
-                ●
-            </span>
-            Sedang
+        <div class="map-legend-item">
+            <span class="legend-dot legend-dot-medium"></span>
+            <span>Risiko sedang</span>
         </div>
 
-        <div class="hotspot-legend-item">
-            <span class="hotspot-legend-dot hotspot-legend-high">
-                ●
-            </span>
-            Tinggi
+        <div class="map-legend-item">
+            <span class="legend-dot legend-dot-high"></span>
+            <span>Risiko tinggi</span>
+        </div>
+
+        <div class="map-legend-section">Layer Peta</div>
+
+        <div class="map-legend-item">
+            <span class="legend-emoji">🔥</span>
+            <span>Kejadian kebakaran</span>
+        </div>
+
+        <div class="map-legend-item">
+            <span class="legend-emoji">🚒</span>
+            <span>Pos damkar</span>
+        </div>
+
+        <div class="map-legend-item">
+            <span class="legend-boundary"></span>
+            <span>Batas wilayah Babel</span>
         </div>
     `;
 
     return div;
 };
 
-hotspotLegend.addTo(map);
+mapLegend.addTo(map);

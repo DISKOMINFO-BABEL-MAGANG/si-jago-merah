@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Hotspot;
+use App\Models\HotspotFetchLog;
 use App\Services\FirmsService;
 use App\Services\GeoService;
 use Illuminate\Console\Command;
@@ -44,6 +45,12 @@ class FetchHotspots extends Command
         $totalSaved = 0;
         $totalDuplicate = 0;
         $totalOutside = 0;
+        $failedSources = [];
+
+        $fetchLog = HotspotFetchLog::create([
+            'status' => 'running',
+            'started_at' => now(),
+        ]);
 
         foreach ($sources as $source) {
 
@@ -249,6 +256,12 @@ class FetchHotspots extends Command
 
             } catch (\Throwable $e) {
 
+                $failedSources[$source] = substr(
+                    $e->getMessage(),
+                    0,
+                    1000
+                );
+
                 $this->error(
                     "Gagal mengambil {$source}: {$e->getMessage()}"
                 );
@@ -290,6 +303,26 @@ class FetchHotspots extends Command
             "Total di luar Babel      : {$totalOutside}"
         );
 
-        return self::SUCCESS;
+        $status = count($failedSources) === count($sources)
+            ? 'failed'
+            : (count($failedSources) > 0 ? 'partial' : 'success');
+
+        $fetchLog->update([
+            'status' => $status,
+            'total_fetched' => $totalFetched,
+            'total_filtered' => $totalFiltered,
+            'total_saved' => $totalSaved,
+            'total_duplicates' => $totalDuplicate,
+            'total_outside_area' => $totalOutside,
+            'source_errors' => $failedSources ?: null,
+            'message' => $status === 'success'
+                ? 'Fetch hotspot selesai.'
+                : 'Ada sumber data yang gagal diproses.',
+            'finished_at' => now(),
+        ]);
+
+        return $status === 'failed'
+            ? self::FAILURE
+            : self::SUCCESS;
     }
 }

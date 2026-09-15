@@ -3,6 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use App\Models\Hotspot;
 
+Route::get('/', function () {
+    return view('gis.map');
+});
+
 
 // =====================================================
 // GIS - DATA HOTSPOT

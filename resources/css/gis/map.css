@@ -59,42 +59,82 @@ body {
 
 
 /* ===============================
-   HOTSPOT LEGEND
+   MAP LEGEND
 ================================ */
 
-.hotspot-legend {
+.map-legend {
     background: #ffffff;
+    min-width: 190px;
     padding: 12px 14px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    color: #1f2937;
     font-family: Arial, sans-serif;
-    line-height: 1.8;
+    font-size: 12px;
 }
 
-.hotspot-legend-title {
-    margin-bottom: 4px;
+.map-legend-title {
+    margin-bottom: 10px;
+    color: #111827;
+    font-size: 14px;
     font-weight: 700;
 }
 
-.hotspot-legend-item {
+.map-legend-section {
+    margin: 10px 0 5px;
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.map-legend-section:first-of-type {
+    margin-top: 0;
+}
+
+.map-legend-item {
     display: flex;
     align-items: center;
-    gap: 7px;
+    min-height: 24px;
+    gap: 8px;
 }
 
-.hotspot-legend-dot {
-    font-size: 18px;
-    line-height: 1;
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    margin-left: 2px;
+    border: 2px solid #ffffff;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16);
 }
 
-.hotspot-legend-low {
-    color: #16a34a;
+.legend-dot-low {
+    background: #16a34a;
 }
 
-.hotspot-legend-medium {
-    color: #f97316;
+.legend-dot-medium {
+    background: #f97316;
 }
 
-.hotspot-legend-high {
-    color: #dc2626;
+.legend-dot-high {
+    background: #dc2626;
+}
+
+.legend-emoji {
+    display: inline-grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    margin-left: 1px;
+    font-size: 15px;
+}
+
+.legend-boundary {
+    width: 16px;
+    height: 12px;
+    margin-left: 1px;
+    border: 2px solid #f97316;
+    border-radius: 3px;
 }
