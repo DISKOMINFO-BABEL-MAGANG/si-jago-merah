@@ -34,18 +34,14 @@ class Kejadian extends Model
         'kendala_lapangan',
         'pos_id',
         'waktu_selesai',
-        'dibuat_pada',
     ];
 
     protected $casts = [
         'tanggal_kejadian' => 'date',
-        'waktu_kejadian' => 'datetime',
-        'waktu_laporan_diterima' => 'datetime',
-        'waktu_tiba_lokasi' => 'datetime',
-        'waktu_selesai' => 'datetime',
-        'dibuat_pada' => 'datetime',
-        'latitude' => 'decimal:7',
-        'longitude' => 'decimal:7',
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'korban_luka' => 'integer',
+        'korban_meninggal' => 'integer',
     ];
 
     public function laporanWarga(): BelongsTo

@@ -33,6 +33,6 @@ class Hotspot extends Model
         'track' => 'float',
         'bright_ti5' => 'float',
         'frp' => 'float',
-        'acq_date' => 'date',
+        'acq_date' => 'date:Y-m-d',
     ];
 }
