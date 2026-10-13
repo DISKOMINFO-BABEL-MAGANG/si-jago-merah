@@ -4,10 +4,11 @@ const map = L.map('map').setView([-2.5, 106.5], 8);
 // LAYER GROUP
 // ===============================
 
-const fireIncidentLayer = L.layerGroup();
-const hotspotLayer = L.layerGroup().addTo(map);
-const fireStationLayer = L.layerGroup();
-const boundaryLayer = L.layerGroup().addTo(map);
+const fireIncidentLayer  = L.layerGroup();
+const nasaHotspotLayer   = L.layerGroup().addTo(map);
+const himawariHotspotLayer = L.layerGroup().addTo(map);
+const fireStationLayer   = L.layerGroup();
+const boundaryLayer      = L.layerGroup().addTo(map);
 
 // ===============================
 // UTILITAS UMUM
@@ -831,13 +832,15 @@ const DEFAULT_FILTERS = {
     end: wibDateOffset(0),
     satellites: SATELLITES.map(item => item.key),
     confidences: ['low', 'medium', 'high'],
-    region: ''
+    region: '',
+    sources: ['nasa', 'himawari']    // sumber data aktif
 };
 
 let filters = JSON.parse(JSON.stringify(DEFAULT_FILTERS));
 
-let allHotspots = [];
-let hotspotRequestId = 0;
+let allNasaHotspots     = [];
+let allHimawariHotspots = [];
+let hotspotRequestId    = 0;
 
 function periodLabel() {
     if (filters.period === 'custom') {
@@ -853,7 +856,8 @@ function periodLabel() {
         : `${hours} jam terakhir`;
 }
 
-function passesFilters(hotspot) {
+// Filter untuk hotspot NASA FIRMS
+function passesNasaFilters(hotspot) {
     // Satelit
     if (!filters.satellites.includes(hotspot.source)) {
         return false;
@@ -869,7 +873,30 @@ function passesFilters(hotspot) {
         return false;
     }
 
-    // Periode
+    // Periode (filter klien-side jika ada data lintas hari)
+    const utc = toUtcDate(hotspot.acq_date, hotspot.acq_time);
+
+    if (!utc) {
+        return false;
+    }
+
+    if (filters.period === 'custom') {
+        const wibDate = wibDateString(utc);
+        return wibDate >= filters.start && wibDate <= filters.end;
+    }
+
+    const hours = parseInt(filters.period, 10);
+
+    return utc.getTime() >= Date.now() - hours * 60 * 60 * 1000;
+}
+
+// Filter untuk hotspot Himawari (hanya region & periode, tidak ada confidence/satelit)
+function passesHimawariFilters(hotspot) {
+    // Kabupaten/kota
+    if (filters.region && hotspot.region !== filters.region) {
+        return false;
+    }
+
     const utc = toUtcDate(hotspot.acq_date, hotspot.acq_time);
 
     if (!utc) {
@@ -899,7 +926,7 @@ function setStatus(text, isError = false) {
     }
 }
 
-function renderSummary(counts) {
+function renderSummary(nasaCounts, himawariCount) {
     const body = document.getElementById('hs-summary-body');
     const foot = document.getElementById('hs-summary-foot');
 
@@ -913,13 +940,14 @@ function renderSummary(counts) {
 
     body.innerHTML = '';
 
+    // Baris NASA FIRMS (per satelit, ada confidence)
     SATELLITES.forEach(satellite => {
-        const row = counts[satellite.key] ?? { low: 0, medium: 0, high: 0 };
+        const row = nasaCounts[satellite.key] ?? { low: 0, medium: 0, high: 0 };
         const total = row.low + row.medium + row.high;
 
-        totalLow += row.low;
+        totalLow    += row.low;
         totalMedium += row.medium;
-        totalHigh += row.high;
+        totalHigh   += row.high;
 
         const tr = document.createElement('tr');
 
@@ -934,29 +962,47 @@ function renderSummary(counts) {
         body.appendChild(tr);
     });
 
+    // Baris Himawari (tidak ada confidence level)
+    if (filters.sources.includes('himawari')) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>🛰️ Himawari</td>
+            <td colspan="3" style="text-align:center">
+                <span class="hs-cell" style="background:#7c3aed;">${himawariCount}</span>
+            </td>
+            <td>${himawariCount}</td>
+        `;
+        body.appendChild(tr);
+    }
+
     foot.innerHTML = `
         <tr>
             <td>Total</td>
             <td>${totalLow}</td>
             <td>${totalMedium}</td>
             <td>${totalHigh}</td>
-            <td>${totalLow + totalMedium + totalHigh}</td>
+            <td>${totalLow + totalMedium + totalHigh + (filters.sources.includes('himawari') ? himawariCount : 0)}</td>
         </tr>
     `;
 }
 
-function renderHotspots() {
-    hotspotLayer.clearLayers();
+// ----- Render NASA FIRMS -----
+function renderNasaHotspots() {
+    nasaHotspotLayer.clearLayers();
 
     const counts = {};
     let displayed = 0;
 
-    allHotspots.forEach(hotspot => {
-        if (!passesFilters(hotspot)) {
+    if (!filters.sources.includes('nasa')) {
+        return { counts, displayed };
+    }
+
+    allNasaHotspots.forEach(hotspot => {
+        if (!passesNasaFilters(hotspot)) {
             return;
         }
 
-        const latitude = parseFloat(hotspot.latitude);
+        const latitude  = parseFloat(hotspot.latitude);
         const longitude = parseFloat(hotspot.longitude);
 
         if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
@@ -985,7 +1031,7 @@ function renderHotspots() {
             <div class="hotspot-popup">
 
                 <h3 class="hotspot-popup-title">
-                    🔥 Hotspot Terdeteksi
+                    🔥 NASA FIRMS Hotspot
                 </h3>
 
                 <div class="hotspot-risk hotspot-risk-${hotspotLevel.class}">
@@ -1005,12 +1051,12 @@ function renderHotspots() {
                 <br>
 
                 <b>Confidence:</b>
-                ${escapeHtml(hotspot.confidence ?? '-')}
+                ${escapeHtml(String(hotspot.confidence ?? '-'))}
                 (${normalizeConfidence(hotspot.confidence)})
                 <br>
 
                 <b>FRP:</b>
-                ${escapeHtml(hotspot.frp ?? '-')} MW
+                ${escapeHtml(String(hotspot.frp ?? '-'))} MW
                 <br>
 
                 <b>Waktu Deteksi:</b>
@@ -1018,17 +1064,119 @@ function renderHotspots() {
                 <br>
 
                 <b>Koordinat:</b>
-                ${latitude}, ${longitude}
+                ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
 
             </div>
         `);
 
-        marker.addTo(hotspotLayer);
+        marker.addTo(nasaHotspotLayer);
         displayed++;
     });
 
-    renderSummary(counts);
-    setStatus(`${displayed} hotspot • ${periodLabel()}`);
+    return { counts, displayed };
+}
+
+// ----- Render Himawari -----
+function renderHimawariHotspots() {
+    himawariHotspotLayer.clearLayers();
+
+    let displayed = 0;
+
+    if (!filters.sources.includes('himawari')) {
+        return displayed;
+    }
+
+    allHimawariHotspots.forEach(hotspot => {
+        if (!passesHimawariFilters(hotspot)) {
+            return;
+        }
+
+        const latitude  = parseFloat(hotspot.latitude);
+        const longitude = parseFloat(hotspot.longitude);
+
+        if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+            return;
+        }
+
+        // Warna ungu untuk membedakan dari NASA
+        const marker = L.circleMarker([latitude, longitude], {
+            radius: 7,
+            fillColor: '#7c3aed',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.85
+        });
+
+        const bt07  = hotspot.bt07  !== null && hotspot.bt07  !== undefined ? Number(hotspot.bt07).toFixed(2)  + ' K' : '-';
+        const bt14  = hotspot.bt14  !== null && hotspot.bt14  !== undefined ? Number(hotspot.bt14).toFixed(2)  + ' K' : '-';
+        const diff  = hotspot.bt_difference !== null && hotspot.bt_difference !== undefined
+            ? Number(hotspot.bt_difference).toFixed(2) + ' K'
+            : '-';
+        const pixel = hotspot.pixel_count ?? '-';
+
+        marker.bindPopup(`
+            <div class="hotspot-popup">
+
+                <h3 class="hotspot-popup-title" style="color:#7c3aed">
+                    🛰️ Himawari Hotspot
+                </h3>
+
+                <div class="hotspot-risk" style="background:#7c3aed;color:#fff;padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:6px">
+                    ${escapeHtml(hotspot.source ?? 'HIMAWARI')}
+                </div>
+
+                <br>
+
+                <b>Wilayah:</b>
+                ${escapeHtml(hotspot.region ?? '-')}
+                <br>
+
+                <b>Satelit:</b>
+                ${escapeHtml(hotspot.satellite ?? '-')}
+                <br>
+
+                <b>BT Ch.07 (3.9µm):</b>
+                ${escapeHtml(bt07)}
+                <br>
+
+                <b>BT Ch.14 (11µm):</b>
+                ${escapeHtml(bt14)}
+                <br>
+
+                <b>Selisih BT (07-14):</b>
+                ${escapeHtml(diff)}
+                <br>
+
+                <b>Jumlah Piksel:</b>
+                ${escapeHtml(String(pixel))}
+                <br>
+
+                <b>Waktu Deteksi:</b>
+                ${formatWIB(hotspot.acq_date, hotspot.acq_time)}
+                <br>
+
+                <b>Koordinat:</b>
+                ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+
+            </div>
+        `);
+
+        marker.addTo(himawariHotspotLayer);
+        displayed++;
+    });
+
+    return displayed;
+}
+
+// ----- Render gabungan & ringkasan -----
+function renderHotspots() {
+    const { counts, displayed: nasaCount } = renderNasaHotspots();
+    const himawariCount = renderHimawariHotspots();
+    const total = nasaCount + himawariCount;
+
+    renderSummary(counts, himawariCount);
+    setStatus(`${total} hotspot • ${periodLabel()}`);
 }
 
 // ===============================
@@ -1042,8 +1190,9 @@ function updateRegionOptions() {
         return;
     }
 
+    // Gabungkan region dari kedua sumber
     const regions = [...new Set(
-        allHotspots
+        [...allNasaHotspots, ...allHimawariHotspots]
             .map(hotspot => hotspot.region)
             .filter(region => region)
     )].sort();
@@ -1099,13 +1248,16 @@ function loadHotspots() {
 
             return response.json();
         })
-        .then(hotspots => {
+        .then(data => {
             // Abaikan respons lama jika sudah ada request yang lebih baru
             if (requestId !== hotspotRequestId) {
                 return;
             }
 
-            allHotspots = hotspots;
+            // Endpoint mengembalikan { nasa: [...], himawari: [...] }
+            allNasaHotspots     = Array.isArray(data.nasa)     ? data.nasa     : [];
+            allHimawariHotspots = Array.isArray(data.himawari) ? data.himawari : [];
+
             updateRegionOptions();
             renderHotspots();
         })
@@ -1130,6 +1282,17 @@ filterControl.onAdd = function () {
             <span>${satellite.label}</span>
         </label>
     `).join('');
+
+    const sourceChecks = `
+        <label class="hs-check">
+            <input type="checkbox" name="hs-source" value="nasa" checked>
+            <span>🔴 NASA FIRMS</span>
+        </label>
+        <label class="hs-check">
+            <input type="checkbox" name="hs-source" value="himawari" checked>
+            <span>🟣 Himawari</span>
+        </label>
+    `;
 
     div.innerHTML = `
         <div class="hs-header" id="hs-toggle">
@@ -1169,7 +1332,12 @@ filterControl.onAdd = function () {
             </div>
 
             <div class="hs-section">
-                <div class="hs-label">Satelit</div>
+                <div class="hs-label">Sumber Data</div>
+                ${sourceChecks}
+            </div>
+
+            <div class="hs-section" id="hs-nasa-section">
+                <div class="hs-label">Satelit NASA FIRMS</div>
                 ${satelliteChecks}
             </div>
 
@@ -1246,7 +1414,9 @@ function readFiltersFromForm() {
             .map(input => input.value),
         confidences: [...document.querySelectorAll('input[name="hs-confidence"]:checked')]
             .map(input => input.value),
-        region: document.getElementById('hs-region').value
+        region: document.getElementById('hs-region').value,
+        sources: [...document.querySelectorAll('input[name="hs-source"]:checked')]
+            .map(input => input.value)
     };
 }
 
@@ -1264,6 +1434,11 @@ function writeFiltersToForm() {
         input.checked = filters.confidences.includes(input.value);
     });
 
+    document.querySelectorAll('input[name="hs-source"]').forEach(input => {
+        input.checked = filters.sources.includes(input.value);
+    });
+
+    toggleNasaSection();
     toggleCustomDates();
 }
 
@@ -1275,7 +1450,21 @@ function toggleCustomDates() {
         .classList.toggle('hs-show', isCustom);
 }
 
+// Tampilkan/sembunyikan bagian filter satelit NASA jika sumber NASA dinonaktifkan
+function toggleNasaSection() {
+    const nasaChecked = document.querySelector('input[name="hs-source"][value="nasa"]')?.checked;
+    const section = document.getElementById('hs-nasa-section');
+
+    if (section) {
+        section.style.display = nasaChecked ? '' : 'none';
+    }
+}
+
 document.getElementById('hs-period').addEventListener('change', toggleCustomDates);
+
+document.querySelectorAll('input[name="hs-source"]').forEach(input => {
+    input.addEventListener('change', toggleNasaSection);
+});
 
 document.getElementById('hs-toggle').addEventListener('click', () => {
     const body = document.getElementById('hs-body');
@@ -1300,8 +1489,13 @@ document.getElementById('hs-apply').addEventListener('click', () => {
         }
     }
 
-    if (next.satellites.length === 0 || next.confidences.length === 0) {
-        setStatus('Pilih minimal satu satelit dan satu confidence.', true);
+    if (next.sources.length === 0) {
+        setStatus('Pilih minimal satu sumber data.', true);
+        return;
+    }
+
+    if (next.sources.includes('nasa') && (next.satellites.length === 0 || next.confidences.length === 0)) {
+        setStatus('Pilih minimal satu satelit dan satu confidence NASA.', true);
         return;
     }
 
@@ -1342,7 +1536,8 @@ L.marker([-2.0670, 105.1900], { icon: fireStationIcon })
 // ===============================
 
 fireIncidentLayer.addTo(map);
-hotspotLayer.addTo(map);
+nasaHotspotLayer.addTo(map);
+himawariHotspotLayer.addTo(map);
 fireStationLayer.addTo(map);
 
 // ===============================
@@ -1357,7 +1552,8 @@ const baseMaps = {
 
 const overlayLayers = {
     '🔥 Kejadian Kebakaran': fireIncidentLayer,
-    '🛰️ Hotspot NASA FIRMS': hotspotLayer,
+    '🔴 Hotspot NASA FIRMS': nasaHotspotLayer,
+    '🟣 Hotspot Himawari': himawariHotspotLayer,
     '🚒 Pos Damkar': fireStationLayer,
     '🗺️ Batas Wilayah Babel': boundaryLayer
 };

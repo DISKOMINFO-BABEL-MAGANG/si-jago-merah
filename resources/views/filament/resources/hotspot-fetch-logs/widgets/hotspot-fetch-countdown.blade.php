@@ -370,30 +370,39 @@
         x-data="{
             target: new Date('{{ $this->getNextFetchTime() }}').getTime(),
             remaining: 0,
-            total: 3600000,
+            total: 600000,
 
             updateCountdown() {
                 const now = new Date().getTime();
 
                 if (now >= this.target) {
-                    this.target = new Date(
-                        new Date().setMinutes(0, 0, 0) + 3600000
-                    ).getTime();
+                    const next = new Date();
+
+                    next.setSeconds(0, 0);
+                    next.setMinutes(
+                        Math.ceil((next.getMinutes() + 1) / 10) * 10
+                    );
+
+                    this.target = next.getTime();
                 }
 
                 this.remaining = Math.max(0, this.target - now);
             },
 
             formatTime() {
-                let totalSeconds = Math.floor(this.remaining / 1000);
+                let totalSeconds =
+                    Math.floor(this.remaining / 1000);
 
-                const hours = Math.floor(totalSeconds / 3600);
+                const hours =
+                    Math.floor(totalSeconds / 3600);
 
                 totalSeconds %= 3600;
 
-                const minutes = Math.floor(totalSeconds / 60);
+                const minutes =
+                    Math.floor(totalSeconds / 60);
 
-                const seconds = totalSeconds % 60;
+                const seconds =
+                    totalSeconds % 60;
 
                 return [
                     String(hours).padStart(2, '0'),

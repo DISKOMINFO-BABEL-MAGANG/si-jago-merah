@@ -2,30 +2,42 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Models\Hotspot;
+use App\Models\HimawariHotspot;
 use App\Http\Controllers\KejadianController;
 
-Route::get('/', function () {return view('home');});
+Route::get('/', function () {
+    return view('home');
+});
 
 Route::get('/gis/kejadian', [KejadianController::class, 'index']);
+
 Route::post('/gis/kejadian', [KejadianController::class, 'store'])
     ->middleware('throttle:20,1');
-    
+
 // =====================================================
 // GIS - DATA HOTSPOT
 // =====================================================
 
-Route::get('/gis/hotspots', function () {
-    $today = now()->toDateString();
+Route::get('/gis/hotspots', function (\Illuminate\Http\Request $request) {
+
+    $today     = now()->toDateString();
     $yesterday = now()->subDay()->toDateString();
 
-    return response()->json(
-        Hotspot::whereBetween('acq_date', [
-            $yesterday,
-            $today,
-        ])
+    $start = $request->query('start', $yesterday);
+    $end   = $request->query('end',   $today);
+
+    $nasa = Hotspot::whereBetween('acq_date', [$start, $end])
         ->latest('acq_date')
-        ->get()
-    );
+        ->get();
+
+    $himawari = HimawariHotspot::whereBetween('acq_date', [$start, $end])
+        ->latest('acq_date')
+        ->get();
+
+    return response()->json([
+        'nasa'     => $nasa,
+        'himawari' => $himawari,
+    ]);
 });
 
 // =====================================================

@@ -9,5 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('hotspots:fetch')
-    ->cron('0 * * * *')
+    ->cron('*/10 * * * *')
+    ->withoutOverlapping();
+
+Schedule::command('himawari:fetch')
+    ->cron('*/10 * * * *')
     ->withoutOverlapping();

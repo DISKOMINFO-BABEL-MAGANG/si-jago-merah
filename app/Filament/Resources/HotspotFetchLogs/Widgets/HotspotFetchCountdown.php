@@ -11,13 +11,23 @@ class HotspotFetchCountdown extends Widget
     protected int|string|array $columnSpan = 'full';
 
     public function getNextFetchTime(): string
-    {
-        $now = now();
+{
+    $now = now();
 
-        $nextHour = $now->copy()
+    $minute = $now->minute;
+
+    $nextMinute = (int) (ceil(($minute + 1) / 10) * 10);
+
+    if ($nextMinute >= 60) {
+        return $now->copy()
             ->addHour()
-            ->startOfHour();
-
-        return $nextHour->toIso8601String();
+            ->startOfHour()
+            ->toIso8601String();
     }
+
+    return $now->copy()
+        ->setMinute($nextMinute)
+        ->setSecond(0)
+        ->toIso8601String();
+}
 }

@@ -18,11 +18,11 @@ class HotspotFetchLogResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $navigationLabel = 'Log Fetch Hotspot';
+    protected static ?string $navigationLabel = 'Log Fetch Hotspot NASA';
 
-    protected static ?string $modelLabel = 'log fetch hotspot';
+    protected static ?string $modelLabel = 'log fetch hotspot NASA';
 
-    protected static ?string $pluralModelLabel = 'log fetch hotspot';
+    protected static ?string $pluralModelLabel = 'log fetch hotspot NASA';
 
     protected static string|UnitEnum|null $navigationGroup = 'Pemantauan';
 
