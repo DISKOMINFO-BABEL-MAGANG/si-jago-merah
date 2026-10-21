@@ -1,9 +1,9 @@
 {
-    "observation_utc": "2026-10-13T02:30:00Z",
+    "observation_utc": "2026-10-18T10:00:00Z",
     "segment": "S0610",
     "files": {
-        "B07": "HS_H09_20261013_0230_B07_FLDK_R20_S0610.DAT.bz2",
-        "B14": "HS_H09_20261013_0230_B14_FLDK_R20_S0610.DAT.bz2"
+        "B07": "HS_H09_20261018_1000_B07_FLDK_R20_S0610.DAT.bz2",
+        "B14": "HS_H09_20261018_1000_B14_FLDK_R20_S0610.DAT.bz2"
     },
-    "fetched_at_utc": "2026-10-13T02:50:34Z"
+    "fetched_at_utc": "2026-10-18T10:21:14Z"
 }

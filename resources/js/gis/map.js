@@ -1086,6 +1086,10 @@ function renderHimawariHotspots() {
         return displayed;
     }
 
+    // Kelompokkan hotspot berdasarkan titik lokasi unik (toleransi ~11 meter)
+    // agar observasi berulang setiap 10 menit tidak saling bertumpuk di peta
+    const groups = new Map();
+
     allHimawariHotspots.forEach(hotspot => {
         if (!passesHimawariFilters(hotspot)) {
             return;
@@ -1098,6 +1102,42 @@ function renderHimawariHotspots() {
             return;
         }
 
+        const key = `${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
+
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key).push(hotspot);
+    });
+
+    groups.forEach(groupHotspots => {
+        // Urutkan observasi dari yang terbaru ke terlama
+        groupHotspots.sort((a, b) => {
+            const timeA = `${a.acq_date || ''} ${a.acq_time || ''}`;
+            const timeB = `${b.acq_date || ''} ${b.acq_time || ''}`;
+            return timeB.localeCompare(timeA);
+        });
+
+        const latest = groupHotspots[0];
+        const oldest = groupHotspots[groupHotspots.length - 1];
+        const detectionCount = groupHotspots.length;
+
+        const latitude  = parseFloat(latest.latitude);
+        const longitude = parseFloat(latest.longitude);
+
+        // Ambil BT07 tertinggi dari semua observasi di titik ini
+        let maxBt07 = null;
+        groupHotspots.forEach(h => {
+            if (h.bt07 !== null && h.bt07 !== undefined) {
+                const val = parseFloat(h.bt07);
+                if (!Number.isNaN(val)) {
+                    if (maxBt07 === null || val > maxBt07) {
+                        maxBt07 = val;
+                    }
+                }
+            }
+        });
+
         // Warna ungu untuk membedakan dari NASA
         const marker = L.circleMarker([latitude, longitude], {
             radius: 7,
@@ -1108,12 +1148,32 @@ function renderHimawariHotspots() {
             fillOpacity: 0.85
         });
 
-        const bt07  = hotspot.bt07  !== null && hotspot.bt07  !== undefined ? Number(hotspot.bt07).toFixed(2)  + ' K' : '-';
-        const bt14  = hotspot.bt14  !== null && hotspot.bt14  !== undefined ? Number(hotspot.bt14).toFixed(2)  + ' K' : '-';
-        const diff  = hotspot.bt_difference !== null && hotspot.bt_difference !== undefined
-            ? Number(hotspot.bt_difference).toFixed(2) + ' K'
+        const bt07  = latest.bt07  !== null && latest.bt07  !== undefined ? Number(latest.bt07).toFixed(2)  + ' K' : '-';
+        const bt14  = latest.bt14  !== null && latest.bt14  !== undefined ? Number(latest.bt14).toFixed(2)  + ' K' : '-';
+        const diff  = latest.bt_difference !== null && latest.bt_difference !== undefined
+            ? Number(latest.bt_difference).toFixed(2) + ' K'
             : '-';
-        const pixel = hotspot.pixel_count ?? '-';
+        const pixel = latest.pixel_count ?? '-';
+
+        const historyHtml = detectionCount > 1
+            ? `
+                <b>Frekuensi Terdeteksi:</b>
+                <span style="font-weight:bold;color:#7c3aed">${detectionCount}x observasi</span>
+                <br>
+                <b>Deteksi Terakhir:</b>
+                ${formatWIB(latest.acq_date, latest.acq_time)}
+                <br>
+                <b>Deteksi Pertama:</b>
+                ${formatWIB(oldest.acq_date, oldest.acq_time)}
+            `
+            : `
+                <b>Waktu Deteksi:</b>
+                ${formatWIB(latest.acq_date, latest.acq_time)}
+            `;
+
+        const maxBt07Html = (maxBt07 !== null && latest.bt07 !== null && Math.abs(maxBt07 - parseFloat(latest.bt07)) > 0.05)
+            ? ` (Maks: ${maxBt07.toFixed(2)} K)`
+            : '';
 
         marker.bindPopup(`
             <div class="hotspot-popup">
@@ -1123,21 +1183,24 @@ function renderHimawariHotspots() {
                 </h3>
 
                 <div class="hotspot-risk" style="background:#7c3aed;color:#fff;padding:3px 8px;border-radius:4px;display:inline-block;margin-bottom:6px">
-                    ${escapeHtml(hotspot.source ?? 'HIMAWARI')}
+                    ${escapeHtml(latest.source ?? 'HIMAWARI')}
                 </div>
 
                 <br>
 
                 <b>Wilayah:</b>
-                ${escapeHtml(hotspot.region ?? '-')}
+                ${escapeHtml(latest.region ?? '-')}
                 <br>
 
                 <b>Satelit:</b>
-                ${escapeHtml(hotspot.satellite ?? '-')}
+                ${escapeHtml(latest.satellite ?? '-')}
+                <br>
+
+                ${historyHtml}
                 <br>
 
                 <b>BT Ch.07 (3.9µm):</b>
-                ${escapeHtml(bt07)}
+                ${escapeHtml(bt07)}${maxBt07Html}
                 <br>
 
                 <b>BT Ch.14 (11µm):</b>
@@ -1150,10 +1213,6 @@ function renderHimawariHotspots() {
 
                 <b>Jumlah Piksel:</b>
                 ${escapeHtml(String(pixel))}
-                <br>
-
-                <b>Waktu Deteksi:</b>
-                ${formatWIB(hotspot.acq_date, hotspot.acq_time)}
                 <br>
 
                 <b>Koordinat:</b>

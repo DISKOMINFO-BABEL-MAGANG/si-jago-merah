@@ -31,7 +31,8 @@ Route::get('/gis/hotspots', function (\Illuminate\Http\Request $request) {
         ->get();
 
     $himawari = HimawariHotspot::whereBetween('acq_date', [$start, $end])
-        ->latest('acq_date')
+        ->orderByDesc('acq_date')
+        ->orderByDesc('acq_time')
         ->get();
 
     return response()->json([
